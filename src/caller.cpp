@@ -1,10 +1,12 @@
 #include <iostream>
+#include <fstream>
 #include <getopt.h>
 #include "spoa/spoa.hpp"
 #include "spoa/alignment_engine.hpp"
 using namespace std;
 
 static struct option options[] = {
+    {"input", optional_argument, 0, 'i'},
     {"match", required_argument, 0, 'A'},
     {"mismatch", required_argument, 0, 'B'},
     {"gap", required_argument, 0, 'O'},
@@ -15,6 +17,7 @@ static struct option options[] = {
 };
 
 typedef struct {
+	std::string input;
     int8_t match;
     int8_t mismatch;
     int8_t gap;
@@ -25,6 +28,7 @@ typedef struct {
 consensus_opt_t *consensus_opt_init()
 {
     consensus_opt_t *opt = (consensus_opt_t*)calloc(1, sizeof(consensus_opt_t));
+	opt->input     = "";
     opt->match     = 5;
     opt->mismatch  = -4;
     opt->gap       = -8;
@@ -72,6 +76,7 @@ void help(consensus_opt_t *opt)
     fprintf(stderr, "       header line will be written first, followed by the consensus\n");
     fprintf(stderr, "       call, and the multiple sequence alignment if specified.\n\n");
     fprintf(stderr, "Options:\n");
+    fprintf(stderr, "       -i, --input     FILE  Read from this input file, stdin otherwise [%s]\n", opt->input.empty() ? "stdin" : opt->input.c_str());
     fprintf(stderr, "       -A, --match     INT   The score for a sequence match [%d]\n", opt->match);
     fprintf(stderr, "       -B, --mismatch  INT   The penalty for a sequence mismatch [%d]\n", opt->mismatch);
     fprintf(stderr, "       -O, --gap       INT   The penalty for a gap [%d]\n", opt->gap);
@@ -89,9 +94,12 @@ int main(int argc, char** argv) {
     std::vector<std::string> sequences = {};
     std::string name;
     std::unique_ptr<spoa::AlignmentEngine> alignment_engine;
+	std::ifstream in;
+	std::istream *stream = &std::cin;
 
-    while ((c = getopt_long(argc, argv, "A:B:O:a:mh", options, nullptr)) != -1) {
-        if ('A' == c) opt->match          = atoi(optarg);
+    while ((c = getopt_long(argc, argv, "i:A:B:O:a:mh", options, nullptr)) != -1) {
+		if ('i' == c) opt->input = optarg;
+		else if ('A' == c) opt->match          = atoi(optarg);
         else if ('B' == c) opt->mismatch  = atoi(optarg);
         else if ('O' == c) opt->gap       = atoi(optarg);
         else if ('a' == c) opt->algorithm = atoi(optarg);
@@ -102,13 +110,18 @@ int main(int argc, char** argv) {
         }
     }
 
+	if (!opt->input.empty()) {
+		in.open(opt->input.c_str(), std::ifstream::in);
+		stream = &in;
+	}
+
     alignment_engine = spoa::createAlignmentEngine(static_cast<spoa::AlignmentType>(opt->algorithm), opt->match, opt->mismatch, opt->gap);
-    std::getline(std::cin, name);
+    std::getline(*stream, name);
     if (name.compare(0, 1, ">") != 0) {
         fprintf(stderr, "Expecting a header line, found: %s\n", name.c_str());
         return 1;
     }
-    for (std::string line; std::getline(std::cin, line);) {
+    for (std::string line; std::getline(*stream, line);) {
         if (line.compare(0, 1, ">") == 0) {
             if (sequences.empty()) {
                 fprintf(stderr, "No sequences specified for '%s'\n", name.c_str());
@@ -130,6 +143,9 @@ int main(int argc, char** argv) {
     }
 
     free(opt);
+	if (!opt->input.empty()) {
+		in.close();
+	}
 
     return 0;
 }
