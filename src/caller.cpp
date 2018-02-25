@@ -50,7 +50,7 @@ void process(std::unique_ptr<spoa::AlignmentEngine> &alignment_engine, std::stri
 
     // call the consensus
     std::string consensus = graph->generate_consensus();
-    fprintf(stderr, "%s\n%s\n", name.c_str(), consensus.c_str());
+    fprintf(stdout, "%s\n%s\n", name.c_str(), consensus.c_str());
 
     // generate the multiple sequence alignemnt if desired
     if (opt->msa) {
@@ -58,7 +58,7 @@ void process(std::unique_ptr<spoa::AlignmentEngine> &alignment_engine, std::stri
         graph->generate_multiple_sequence_alignment(msa);
 
         for (const auto& it: msa) {
-            fprintf(stderr, "%s\n", it.c_str());
+            fprintf(stdout, "%s\n", it.c_str());
         }
     }
 }
@@ -122,19 +122,26 @@ int main(int argc, char** argv) {
         return 1;
     }
     for (std::string line; std::getline(*stream, line);) {
-        if (line.compare(0, 1, ">") == 0) {
-            if (sequences.empty()) {
-                fprintf(stderr, "No sequences specified for '%s'\n", name.c_str());
-                return -1;
+		// An empty line can trigger process
+        if (line.empty() || line.compare(0, 1, ">") == 0) {
+			if (sequences.empty()) {
+				if (!name.empty()) {
+					fprintf(stderr, "No sequences specified for '%s'\n", name.c_str());
+					return -1;
+				}
             }
-            process(alignment_engine, name, sequences, opt);
-            name = line;
+			else {
+				process(alignment_engine, name, sequences, opt);
+				if (line.isempty()) fflush(stdout);
+
+			}
+			name = line.empty() ? "" : line;
             sequences.clear();
         } else {
-            if (line.empty()) {
-                fprintf(stderr, "Empty line for '%s'\n", name.c_str());
-                return -1;
-            }
+			if (name.empty()) {
+				fprintf(stderr, "No name found for '%s'\n", line.c_str());
+				return -1;
+			}
             sequences.push_back(line);
         }
     }
