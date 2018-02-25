@@ -132,7 +132,7 @@ int main(int argc, char** argv) {
             }
 			else {
 				process(alignment_engine, name, sequences, opt);
-				if (line.isempty()) fflush(stdout);
+				if (line.empty()) fflush(stdout);
 
 			}
 			name = line.empty() ? "" : line;
