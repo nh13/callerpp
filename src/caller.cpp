@@ -57,14 +57,9 @@ void process(std::unique_ptr<spoa::AlignmentEngine> &alignment_engine, std::stri
 
     // generate the multiple sequence alignemnt if desired
     if (opt->msa) {
-		// add the consensus to the graph if specified
-		if (opt->msa_cons) {
-			auto alignment = alignment_engine->align_sequence_with_graph(consensus, graph);
-			graph->add_alignment(alignment, consensus);
-		}
 		// generate the MSA
         std::vector<std::string> msa;
-        graph->generate_multiple_sequence_alignment(msa);
+        graph->generate_multiple_sequence_alignment(msa, opt->msa_cons);
 
         for (const auto& it: msa) {
             fprintf(stdout, "%s\n", it.c_str());
