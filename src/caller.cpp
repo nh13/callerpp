@@ -12,6 +12,7 @@ static struct option options[] = {
     {"gap", required_argument, 0, 'O'},
     {"algorithm", required_argument, 0, 'a'},
     {"msa", no_argument, 0, 'm'},
+    {"msa-with-consensus", no_argument, 0, 'C'},
     {"help", no_argument, 0, 'h'},
     {0, 0, 0, 0}
 };
@@ -23,6 +24,7 @@ typedef struct {
     int8_t gap;
     int8_t algorithm;
     bool msa;
+	bool msa_cons;
 } consensus_opt_t;
 
 consensus_opt_t *consensus_opt_init()
@@ -34,6 +36,7 @@ consensus_opt_t *consensus_opt_init()
     opt->gap       = -8;
     opt->algorithm = 0;
     opt->msa       = false;
+	opt->msa_cons  = false;
     return opt;
 }
 
@@ -54,6 +57,12 @@ void process(std::unique_ptr<spoa::AlignmentEngine> &alignment_engine, std::stri
 
     // generate the multiple sequence alignemnt if desired
     if (opt->msa) {
+		// add the consensus to the graph if specified
+		if (opt->msa_cons) {
+			auto alignment = alignment_engine->align_sequence_with_graph(consensus, graph);
+			graph->add_alignment(alignment, consensus);
+		}
+		// generate the MSA
         std::vector<std::string> msa;
         graph->generate_multiple_sequence_alignment(msa);
 
@@ -85,6 +94,7 @@ void help(consensus_opt_t *opt)
     fprintf(stderr, "                             1 - global (Needleman-Wunsch)\n");
     fprintf(stderr, "                             2 - semi-global (glocal)\n");
     fprintf(stderr, "       -m, --msa             Output multiple sequence alignment [%s]\n", opt->msa ? "true" : "false");
+    fprintf(stderr, "       -C, --msa-with-consensus   Include the consensus in the MSA (implied -m) [%s]\n", opt->msa_cons ? "true" : "false");
     fprintf(stderr, "       -h, --help            Prints out the help\n");
 }
 
@@ -97,13 +107,14 @@ int main(int argc, char** argv) {
 	std::ifstream in;
 	std::istream *stream = &std::cin;
 
-    while ((c = getopt_long(argc, argv, "i:A:B:O:a:mh", options, nullptr)) != -1) {
+    while ((c = getopt_long(argc, argv, "i:A:B:O:a:mCh", options, nullptr)) != -1) {
 		if ('i' == c) opt->input = optarg;
 		else if ('A' == c) opt->match          = atoi(optarg);
         else if ('B' == c) opt->mismatch  = atoi(optarg);
         else if ('O' == c) opt->gap       = atoi(optarg);
         else if ('a' == c) opt->algorithm = atoi(optarg);
         else if ('m' == c) opt->msa       = true;
+        else if ('C' == c) opt->msa_cons  = opt->msa = true;
         else {
             help(opt);
             return -1;
