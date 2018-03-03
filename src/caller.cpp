@@ -5,45 +5,167 @@
 #include "spoa/alignment_engine.hpp"
 using namespace std;
 
+typedef struct {
+    const bool operator()(const std::string& first, const std::string& second) {
+        return first.size() < second.size() || (first.size() == second.size() && first < second);
+    }
+} compare_string_size_lt_t;
+
+typedef struct {
+    bool operator()(const std::string& first, const std::string& second) {
+        return second.size() < first.size() || (second.size() == first.size() && second < first);
+    }
+} compare_string_size_gt_t;
+
 static struct option options[] = {
     {"input", optional_argument, 0, 'i'},
     {"match", required_argument, 0, 'A'},
     {"mismatch", required_argument, 0, 'B'},
     {"gap", required_argument, 0, 'O'},
     {"algorithm", required_argument, 0, 'a'},
+    {"resort", no_argument, 0, 'r'},
     {"msa", no_argument, 0, 'm'},
-    {"msa-with-consensus", no_argument, 0, 'C'},
+    {"coverage", no_argument, 0, 'c'},
+    {"left-align", no_argument, 0, 'l'},
     {"help", no_argument, 0, 'h'},
     {0, 0, 0, 0}
 };
 
 typedef struct {
-	std::string input;
+    std::string input;
     int8_t match;
     int8_t mismatch;
     int8_t gap;
     int8_t algorithm;
+    int8_t resort;
+    bool coverage;
     bool msa;
-	bool msa_cons;
+    bool msa_extra;
+    bool left_align;
+    // for resort
+    compare_string_size_lt_t _compare_lt;
+    compare_string_size_gt_t _compare_gt;
 } consensus_opt_t;
 
 consensus_opt_t *consensus_opt_init()
 {
     consensus_opt_t *opt = (consensus_opt_t*)calloc(1, sizeof(consensus_opt_t));
-	opt->input     = "";
-    opt->match     = 5;
-    opt->mismatch  = -4;
-    opt->gap       = -8;
-    opt->algorithm = 0;
-    opt->msa       = false;
-	opt->msa_cons  = false;
+    opt->input      = "";
+    opt->match      = 5;
+    opt->mismatch   = -4;
+    opt->gap        = -8;
+    opt->algorithm  = 0;
+    opt->resort     = 0;
+    opt->coverage   = false;
+    opt->msa        = false;
+    opt->msa_extra  = false;
+    opt->left_align = false;
     return opt;
+}
+
+void left_align(std::string &consensus, std::string &sequence) {
+    int msa_size = consensus.size();
+
+    int left = 0;
+    while(left < msa_size) {
+        // find the left-moset '-' in a run of '-'
+        if (sequence[left] != '-') {
+            left++;
+            continue;
+        }
+        int right = left;
+        // move to base after the deletion
+        while (right < msa_size && sequence[right] == '-') {
+            right++;
+        }
+        if (msa_size == right) { // no more bases
+            left = right;
+            continue;
+        }
+        if (left == right) {
+            left++;
+            continue;
+        }
+        // examine base-by-base
+        while (right < msa_size && consensus[left] == sequence[right]) {
+            sequence[left] = sequence[right];
+            sequence[right] = '-';
+            left++;
+            right++;
+        }
+        left = right;
+    }
+}
+
+bool msa_all_dashes(const std::vector<std::string> &msa, const int index) {
+    int i;
+    for (i = 0; i < msa.size() && msa[i][index] == '-'; i++) {}  
+    return (i == msa.size());
+}
+
+void left_align_msa(std::vector<std::string> &msa) {
+    std::string consensus_msa = msa[msa.size()-1];
+
+    // left-align
+    for (int i = 0; i < msa.size()-1; i++) {
+        left_align(consensus_msa, msa[i]);
+    }
+
+    // remove any positions in the MSA that are all '-'
+    int left = 0;
+    while (left < consensus_msa.size()) {
+        // check if all positions are '-'
+        int right = left;
+        while (right < consensus_msa.size() && msa_all_dashes(msa, right)) {
+                right++;
+        }
+        if (left == right) {
+            left++;
+            continue;
+        }
+        else if (consensus_msa.size() <= right) {
+            right--;
+        }
+
+        int next_left = right + 1;
+
+        // shift down
+        while (right < consensus_msa.size()) {
+            for (int j = 0; j < msa.size(); j++) {
+                msa[j][left] = msa[j][right];
+                msa[j][right] = '-';
+            }
+            left++;
+            right++;
+        }
+        // resize
+        for (int j = 0; j < msa.size(); j++) {
+            msa[j].resize(msa[j].size() - (right-left+1));
+        }
+
+        left = next_left;
+
+    }
 }
 
 void process(std::unique_ptr<spoa::AlignmentEngine> &alignment_engine, std::string &name, std::vector<std::string> &sequences, consensus_opt_t *opt) {
     alignment_engine->prealloc(sequences.size(), 4);
 
     auto graph = spoa::createGraph();
+
+    switch(opt->resort) {
+        case 0: break; // do nothing
+        case 1: 
+                std::sort(sequences.begin(), sequences.end(), opt->_compare_lt); 
+                break;
+        case 2: 
+                compare_string_size_gt_t compare_gt;
+                std::sort(sequences.begin(), sequences.end(), opt->_compare_gt); 
+                break;
+        default: 
+                fprintf(stderr, "Bug: resort value '%d' not valid!\n", opt->resort);
+                exit(1);
+    }
 
     // add the alignments to the graph
     for (const auto& it: sequences) {
@@ -52,17 +174,40 @@ void process(std::unique_ptr<spoa::AlignmentEngine> &alignment_engine, std::stri
     }
 
     // call the consensus
-    std::string consensus = graph->generate_consensus();
-    fprintf(stdout, "%s\n%s\n", name.c_str(), consensus.c_str());
+    if (opt->coverage) {
+        std::vector<uint32_t> coverage;
+        std::string consensus = graph->generate_consensus(coverage, true);
+        // coverage for each possible base
+        fprintf(stdout, "%s\n%s\n", name.c_str(), consensus.c_str());
+        for (uint32_t i = 0; i < graph->num_codes(); ++i) {
+            fputc(graph->decoder(i), stdout);
+            for (uint32_t j = 0; j < consensus.size(); ++j) {
+                fprintf(stdout, ",%u", coverage[i * consensus.size() + j]);
+            }
+            fputc('\n', stdout);
+        }
+        // coverage for deletion
+        fputc('-', stdout);
+        for (uint32_t j = 0; j < consensus.size(); ++j) {
+            fprintf(stdout, ",%u", coverage[graph->num_codes() * consensus.size() + j]);
+        }
+        fputc('\n', stdout);
+    }
+    else {
+        std::string consensus = graph->generate_consensus();
+        fprintf(stdout, "%s\n%s\n", name.c_str(), consensus.c_str());
+    }
 
     // generate the multiple sequence alignemnt if desired
     if (opt->msa) {
-		// generate the MSA
         std::vector<std::string> msa;
-        graph->generate_multiple_sequence_alignment(msa, opt->msa_cons);
-
+        graph->generate_multiple_sequence_alignment(msa, true);
+        if (opt->left_align) {
+            left_align_msa(msa);
+        }
         for (const auto& it: msa) {
-            fprintf(stdout, "%s\n", it.c_str());
+            std::string sequence = it;
+            fprintf(stdout, "%s\n", sequence.c_str());
         }
     }
 }
@@ -88,8 +233,13 @@ void help(consensus_opt_t *opt)
     fprintf(stderr, "                             0 - local (Smith-Waterman\n");
     fprintf(stderr, "                             1 - global (Needleman-Wunsch)\n");
     fprintf(stderr, "                             2 - semi-global (glocal)\n");
+    fprintf(stderr, "       -r, --resort INT      Resort the input sequences prior to POA/MSA [%d]\n", opt->resort);
+    fprintf(stderr, "                             0 - do not sort\n");
+    fprintf(stderr, "                             1 - by length sequence (shortest first)\n");
+    fprintf(stderr, "                             2 - by length sequence (longest first)\n");
+    fprintf(stderr, "       -c, --coverage        Output the per-base coverage for the consensus [%s]\n", opt->coverage ? "true" : "false");
     fprintf(stderr, "       -m, --msa             Output multiple sequence alignment [%s]\n", opt->msa ? "true" : "false");
-    fprintf(stderr, "       -C, --msa-with-consensus   Include the consensus in the MSA (implied -m) [%s]\n", opt->msa_cons ? "true" : "false");
+    fprintf(stderr, "       -l, --left-align      Left align the sequences in the multiple sequence alignment [%s]\n", opt->left_align ? "true" : "false");
     fprintf(stderr, "       -h, --help            Prints out the help\n");
 }
 
@@ -99,27 +249,42 @@ int main(int argc, char** argv) {
     std::vector<std::string> sequences = {};
     std::string name;
     std::unique_ptr<spoa::AlignmentEngine> alignment_engine;
-	std::ifstream in;
-	std::istream *stream = &std::cin;
+    std::ifstream in;
+    std::istream *stream = &std::cin;
 
-    while ((c = getopt_long(argc, argv, "i:A:B:O:a:mCh", options, nullptr)) != -1) {
-		if ('i' == c) opt->input = optarg;
-		else if ('A' == c) opt->match          = atoi(optarg);
-        else if ('B' == c) opt->mismatch  = atoi(optarg);
-        else if ('O' == c) opt->gap       = atoi(optarg);
-        else if ('a' == c) opt->algorithm = atoi(optarg);
-        else if ('m' == c) opt->msa       = true;
-        else if ('C' == c) opt->msa_cons  = opt->msa = true;
+    while ((c = getopt_long(argc, argv, "i:A:B:O:a:r:imlh", options, nullptr)) != -1) {
+        if ('i' == c) opt->input = optarg;
+        else if ('A' == c) opt->match      = atoi(optarg);
+        else if ('B' == c) opt->mismatch   = atoi(optarg);
+        else if ('O' == c) opt->gap        = atoi(optarg);
+        else if ('a' == c) opt->algorithm  = atoi(optarg);
+        else if ('r' == c) opt->resort     = atoi(optarg);
+        else if ('c' == c) opt->coverage   = true;
+        else if ('m' == c) opt->msa        = true;
+        else if ('l' == c) opt->left_align = true;
         else {
             help(opt);
             return -1;
         }
     }
+    if (optind != argc) {
+        help(opt);
+        fprintf(stderr, "Error: extra arguments found:");
+        while (optind < argc) {
+            fprintf(stderr, " %s", argv[optind]);
+            optind++;
+        }
+        fputc('\n', stderr);
+        return -1;
+    }
 
-	if (!opt->input.empty()) {
-		in.open(opt->input.c_str(), std::ifstream::in);
-		stream = &in;
-	}
+    if (opt->input.empty()) {
+        fprintf(stderr, "Reading from standard input...\n");
+    }
+    else {
+        in.open(opt->input.c_str(), std::ifstream::in);
+        stream = &in;
+    }
 
     alignment_engine = spoa::createAlignmentEngine(static_cast<spoa::AlignmentType>(opt->algorithm), opt->match, opt->mismatch, opt->gap);
     std::getline(*stream, name);
@@ -128,26 +293,26 @@ int main(int argc, char** argv) {
         return 1;
     }
     for (std::string line; std::getline(*stream, line);) {
-		// An empty line can trigger process
+        // An empty line can trigger process
         if (line.empty() || line.compare(0, 1, ">") == 0) {
-			if (sequences.empty()) {
-				if (!name.empty()) {
-					fprintf(stderr, "No sequences specified for '%s'\n", name.c_str());
-					return -1;
-				}
+            if (sequences.empty()) {
+                if (!name.empty()) {
+                    fprintf(stderr, "No sequences specified for '%s'\n", name.c_str());
+                    return -1;
+                }
             }
-			else {
-				process(alignment_engine, name, sequences, opt);
-				if (line.empty()) fflush(stdout);
+            else {
+                process(alignment_engine, name, sequences, opt);
+                if (line.empty()) fflush(stdout);
 
-			}
-			name = line.empty() ? "" : line;
+            }
+            name = line.empty() ? "" : line;
             sequences.clear();
         } else {
-			if (name.empty()) {
-				fprintf(stderr, "No name found for '%s'\n", line.c_str());
-				return -1;
-			}
+            if (name.empty()) {
+                fprintf(stderr, "No name found for '%s'\n", line.c_str());
+                return -1;
+            }
             sequences.push_back(line);
         }
     }
@@ -156,9 +321,9 @@ int main(int argc, char** argv) {
     }
 
     free(opt);
-	if (!opt->input.empty()) {
-		in.close();
-	}
+    if (!opt->input.empty()) {
+        in.close();
+    }
 
     return 0;
 }
