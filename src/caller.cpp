@@ -27,6 +27,7 @@ static struct option options[] = {
     {"msa", no_argument, 0, 'm'},
     {"coverage", no_argument, 0, 'c'},
     {"left-align", no_argument, 0, 'l'},
+    {"pairwise-msa", no_argument, 0, 'p'},
     {"help", no_argument, 0, 'h'},
     {0, 0, 0, 0}
 };
@@ -42,6 +43,7 @@ typedef struct {
     bool msa;
     bool msa_extra;
     bool left_align;
+    bool pairwise_msa;
     // for resort
     compare_string_size_lt_t _compare_lt;
     compare_string_size_gt_t _compare_gt;
@@ -50,16 +52,17 @@ typedef struct {
 consensus_opt_t *consensus_opt_init()
 {
     consensus_opt_t *opt = (consensus_opt_t*)calloc(1, sizeof(consensus_opt_t));
-    opt->input      = "";
-    opt->match      = 5;
-    opt->mismatch   = -4;
-    opt->gap        = -8;
-    opt->algorithm  = 0;
-    opt->resort     = 0;
-    opt->coverage   = false;
-    opt->msa        = false;
-    opt->msa_extra  = false;
-    opt->left_align = false;
+    opt->input           = "";
+    opt->match           = 5;
+    opt->mismatch        = -4;
+    opt->gap             = -8;
+    opt->algorithm       = 0;
+    opt->resort          = 0;
+    opt->coverage        = false;
+    opt->msa             = false;
+    opt->msa_extra       = false;
+    opt->left_align      = false;
+    opt->pairwise_msa    = false;
     return opt;
 }
 
@@ -151,7 +154,6 @@ void left_align_msa(std::vector<std::string> &msa) {
 void process(std::unique_ptr<spoa::AlignmentEngine> &alignment_engine, std::string &name, std::vector<std::string> &sequences, consensus_opt_t *opt) {
     alignment_engine->prealloc(sequences.size(), 4);
 
-    auto graph = spoa::createGraph();
 
     switch(opt->resort) {
         case 0: break; // do nothing
@@ -167,16 +169,41 @@ void process(std::unique_ptr<spoa::AlignmentEngine> &alignment_engine, std::stri
                 exit(1);
     }
 
+    // create the graph for alignment
+    auto graph = spoa::createGraph();
+
     // add the alignments to the graph
     for (const auto& it: sequences) {
         auto alignment = alignment_engine->align_sequence_with_graph(it, graph);
         graph->add_alignment(alignment, it);
     }
 
+    std::string consensus;
+    if (opt->pairwise_msa) {
+        // generate the consenuss
+        consensus = graph->generate_consensus();
+        // add the consenuss to the list of sequences
+        sequences.insert(sequences.begin(), consensus);
+        // create a enw graph for the second round of alignment
+        graph = spoa::createGraph();
+        // add the alignments to the graph, including the consensus!
+        for (const auto& it: sequences) {
+            auto alignment = alignment_engine->align_sequence_with_graph(it, graph);
+            graph->add_alignment(alignment, it);
+        }
+    }
+
     // call the consensus
     if (opt->coverage) {
         std::vector<uint32_t> coverage;
         std::string consensus = graph->generate_consensus(coverage, true);
+        // reduce coverage by one if we added the consensus to the graph
+        if (opt->pairwise_msa) {
+            for (int i = 0; i < consensus.size(); i++) {
+                uint8_t code = graph->coder(consensus[i]);
+                coverage[code * consensus.size() + i]--;
+            }
+        }
         // coverage for each possible base
         fprintf(stdout, "%s\n%s\n", name.c_str(), consensus.c_str());
         for (uint32_t i = 0; i < graph->num_codes(); ++i) {
@@ -202,9 +229,10 @@ void process(std::unique_ptr<spoa::AlignmentEngine> &alignment_engine, std::stri
     if (opt->msa) {
         std::vector<std::string> msa;
         graph->generate_multiple_sequence_alignment(msa, true);
-        if (opt->left_align) {
-            left_align_msa(msa);
-        }
+        // remove the extra consensus if added
+        if (opt->pairwise_msa) msa.erase(msa.begin());
+        // left align if necessary
+        if (opt->left_align) left_align_msa(msa);
         for (const auto& it: msa) {
             std::string sequence = it;
             fprintf(stdout, "%s\n", sequence.c_str());
@@ -240,6 +268,7 @@ void help(consensus_opt_t *opt)
     fprintf(stderr, "       -c, --coverage        Output the per-base coverage for the consensus [%s]\n", opt->coverage ? "true" : "false");
     fprintf(stderr, "       -m, --msa             Output multiple sequence alignment [%s]\n", opt->msa ? "true" : "false");
     fprintf(stderr, "       -l, --left-align      Left align the sequences in the multiple sequence alignment [%s]\n", opt->left_align ? "true" : "false");
+    fprintf(stderr, "       -p, --pairwise-msa    Re-compute the MSA by adding in the consensus first [%s]\n", opt->pairwise_msa ? "true" : "false");
     fprintf(stderr, "       -h, --help            Prints out the help\n");
 }
 
@@ -252,16 +281,17 @@ int main(int argc, char** argv) {
     std::ifstream in;
     std::istream *stream = &std::cin;
 
-    while ((c = getopt_long(argc, argv, "i:A:B:O:a:r:imlh", options, nullptr)) != -1) {
-        if ('i' == c) opt->input = optarg;
-        else if ('A' == c) opt->match      = atoi(optarg);
-        else if ('B' == c) opt->mismatch   = atoi(optarg);
-        else if ('O' == c) opt->gap        = atoi(optarg);
-        else if ('a' == c) opt->algorithm  = atoi(optarg);
-        else if ('r' == c) opt->resort     = atoi(optarg);
-        else if ('c' == c) opt->coverage   = true;
-        else if ('m' == c) opt->msa        = true;
-        else if ('l' == c) opt->left_align = true;
+    while ((c = getopt_long(argc, argv, "i:A:B:O:a:r:cmlph", options, nullptr)) != -1) {
+        if ('i' == c)      opt->input        = optarg;
+        else if ('A' == c) opt->match        = atoi(optarg);
+        else if ('B' == c) opt->mismatch     = atoi(optarg);
+        else if ('O' == c) opt->gap          = atoi(optarg);
+        else if ('a' == c) opt->algorithm    = atoi(optarg);
+        else if ('r' == c) opt->resort       = atoi(optarg);
+        else if ('c' == c) opt->coverage     = true;
+        else if ('m' == c) opt->msa          = true;
+        else if ('l' == c) opt->left_align   = true;
+        else if ('p' == c) opt->pairwise_msa = true;
         else {
             help(opt);
             return -1;
