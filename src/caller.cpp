@@ -116,38 +116,35 @@ void left_align_msa(std::vector<std::string> &msa) {
 
     // remove any positions in the MSA that are all '-'
     int left = 0;
-    while (left < consensus_msa.size()) {
+    while (left < msa[0].size()) {
         // check if all positions are '-'
         int right = left;
-        while (right < consensus_msa.size() && msa_all_dashes(msa, right)) {
-                right++;
+        while (right < msa[0].size() && msa_all_dashes(msa, right)) {
+            right++;
         }
         if (left == right) {
             left++;
             continue;
         }
-        else if (consensus_msa.size() <= right) {
-            right--;
-        }
-
+        right--;
         int next_left = right + 1;
 
         // shift down
-        while (right < consensus_msa.size()) {
+        while (right < msa[0].size()-1) {
             for (int j = 0; j < msa.size(); j++) {
-                msa[j][left] = msa[j][right];
-                msa[j][right] = '-';
+                msa[j][left]  = msa[j][right+1];
+                msa[j][right+1] = '-';
             }
             left++;
             right++;
         }
+
         // resize
         for (int j = 0; j < msa.size(); j++) {
             msa[j].resize(msa[j].size() - (right-left+1));
         }
 
         left = next_left;
-
     }
 }
 
