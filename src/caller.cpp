@@ -6,6 +6,8 @@
 #include "spoa/alignment_engine.hpp"
 using namespace std;
 
+#define PACKAGE_VERSION "0.1.0-dev"
+
 typedef struct compare_string_size_lt_t {
     const bool operator()(const std::string& first, const std::string& second) {
         return first.size() < second.size() || (first.size() == second.size() && first < second);
@@ -168,11 +170,11 @@ void process(std::unique_ptr<spoa::AlignmentEngine> &alignment_engine, std::stri
 
     // create the graph for alignment
     //auto graph = spoa::createGraph();
-	spoa::Graph graph{};
+    spoa::Graph graph{};
 
     // add the alignments to the graph
     for (const auto& it: sequences) {
-		std::int32_t score = 0;
+        std::int32_t score = 0;
         auto alignment = alignment_engine->Align(it, graph, &score);
         graph.AddAlignment(alignment, it);
     }
@@ -238,10 +240,16 @@ void process(std::unique_ptr<spoa::AlignmentEngine> &alignment_engine, std::stri
     }
 }
 
+void version()
+{
+    fprintf(stderr, "Version: %s\n", PACKAGE_VERSION);
+}
+
 void help(consensus_opt_t *opt)
 {
     fprintf(stderr, "Usage: consensus [options] <sequences>\n\n");
     fprintf(stderr, "A tool for consensus calling and multiple sequence alignment.\n\n");
+    fprintf(stderr, "Version: %s\n\n", PACKAGE_VERSION);
     fprintf(stderr, "Input:\n");
     fprintf(stderr, "       The input will be read from standard input. Each batch of\n");
     fprintf(stderr, "       input sequences should start with a FASTA header line ('>').\n");
@@ -268,6 +276,7 @@ void help(consensus_opt_t *opt)
     fprintf(stderr, "       -l, --left-align      Left align the sequences in the multiple sequence alignment [%s]\n", opt->left_align ? "true" : "false");
     fprintf(stderr, "       -p, --pairwise-msa    Re-compute the MSA by adding in the consensus first [%s]\n", opt->pairwise_msa ? "true" : "false");
     fprintf(stderr, "       -h, --help            Prints out the help\n");
+    fprintf(stderr, "       -v, --version         Prints out the version\n");
 }
 
 int main(int argc, char** argv) {
@@ -279,7 +288,7 @@ int main(int argc, char** argv) {
     std::ifstream in;
     std::istream *stream = &std::cin;
 
-    while ((c = getopt_long(argc, argv, "i:A:B:O:a:r:cmlph", options, nullptr)) != -1) {
+    while ((c = getopt_long(argc, argv, "i:A:B:O:a:r:cmlphv", options, nullptr)) != -1) {
         if ('i' == c)      opt->input        = optarg;
         else if ('A' == c) opt->match        = atoi(optarg);
         else if ('B' == c) opt->mismatch     = atoi(optarg);
@@ -290,6 +299,10 @@ int main(int argc, char** argv) {
         else if ('m' == c) opt->msa          = true;
         else if ('l' == c) opt->left_align   = true;
         else if ('p' == c) opt->pairwise_msa = true;
+        else if ('v' == c) {
+            version();
+            return -1;
+        }
         else {
             help(opt);
             return -1;
