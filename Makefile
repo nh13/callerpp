@@ -6,19 +6,20 @@ CPP_FLAGS= -std=c++11
 OBJS=      $(BUILD_DIR)/caller.o
 PROG=      callerpp
 INCLUDES=
-LIBS=      -lspoa
+LIBS=
+
 
 .PHONY: directories clean
 
 .SUFFIXES:.cpp .o
 
 $(BUILD_DIR)/%.o: $(SRC_DIR)/%.cpp
-	$(CPP) -c $(CPP_FLAGS) $< -o $@
+	$(CPP) -c $(CPP_FLAGS) $(INCLUDES) $< -o $@
 
 all:directories $(BIN_DIR)/$(PROG)
 
 $(BIN_DIR)/$(PROG): $(OBJS)
-	$(CPP) $(CPP_FLAGS) $(OBJS) -o $@ $(LIBS)
+	$(CPP) $(CPP_FLAGS) $(OBJS) -o $@ $(LIBS) -lspoa
 
 $(BUILD_DIR) $(BIN_DIR):
 	mkdir -p $@
