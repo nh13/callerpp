@@ -1,3 +1,4 @@
+#include <algorithm>
 #include <iostream>
 #include <fstream>
 #include <getopt.h>
@@ -52,7 +53,6 @@ typedef struct consensus_opt_t {
 consensus_opt_t *consensus_opt_init()
 {
     consensus_opt_t *opt = (consensus_opt_t*)calloc(1, sizeof(consensus_opt_t));
-    opt->input           = "";
     opt->match           = 5;
     opt->mismatch        = -4;
     opt->gap             = -8;

@@ -1,0 +1,42 @@
+name: Compilation Check
+
+on: [push]
+
+env:
+  PYTHON_VERSION: 3.11
+
+jobs:
+  Tests:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout callerpp
+        uses: actions/checkout@v4
+      
+      - name: Checkout spoa
+        uses: actions/checkout@v4
+        with: 
+          repository: rvaser/spoa
+          path: spoa
+
+      - name: Install the spoa library
+        shell: bash -l {0}
+        run: |
+          pushd spoa
+          cmake -B build -DCMAKE_BUILD_TYPE=Release spoa_install spoa_optimize_for_portability
+          sudo make -C build install
+          popd
+
+      - name: Test spoa
+        shell: bash -l {0}
+        run: |
+          spoa --version
+
+      - name: Build callerpp
+        shell: bash -l {0}
+        run: |
+          make
+
+      - name: Test callerpp
+        shell: bash -l {0}
+        run: |
+          printf ">1\nAAAAAGAAAAA\nAAAAACAAAAA\nAAAAAGAAAAA"| ./bin/callerpp -a 2
