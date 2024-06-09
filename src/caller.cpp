@@ -5,13 +5,13 @@
 #include "spoa/alignment_engine.hpp"
 using namespace std;
 
-typedef struct {
+typedef struct compare_string_size_lt_t {
     const bool operator()(const std::string& first, const std::string& second) {
         return first.size() < second.size() || (first.size() == second.size() && first < second);
     }
 } compare_string_size_lt_t;
 
-typedef struct {
+typedef struct compare_string_size_gt_t {
     bool operator()(const std::string& first, const std::string& second) {
         return second.size() < first.size() || (second.size() == first.size() && second < first);
     }
@@ -32,7 +32,7 @@ static struct option options[] = {
     {0, 0, 0, 0}
 };
 
-typedef struct {
+typedef struct consensus_opt_t {
     std::string input;
     int8_t match;
     int8_t mismatch;
