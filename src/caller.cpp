@@ -149,7 +149,7 @@ void left_align_msa(std::vector<std::string> &msa) {
 }
 
 void process(std::unique_ptr<spoa::AlignmentEngine> &alignment_engine, std::string &name, std::vector<std::string> &sequences, consensus_opt_t *opt) {
-    alignment_engine->prealloc(sequences.size(), 4);
+    alignment_engine->Prealloc(sequences.size(), 4);
 
 
     switch(opt->resort) {
@@ -167,44 +167,46 @@ void process(std::unique_ptr<spoa::AlignmentEngine> &alignment_engine, std::stri
     }
 
     // create the graph for alignment
-    auto graph = spoa::createGraph();
+    //auto graph = spoa::createGraph();
+	spoa::Graph graph{};
 
     // add the alignments to the graph
     for (const auto& it: sequences) {
-        auto alignment = alignment_engine->align_sequence_with_graph(it, graph);
-        graph->add_alignment(alignment, it);
+		std::int32_t score = 0;
+        auto alignment = alignment_engine->Align(it, graph, &score);
+        graph.AddAlignment(alignment, it);
     }
 
     std::string consensus;
     if (opt->pairwise_msa) {
         // generate the consenuss
-        consensus = graph->generate_consensus();
+        consensus = graph.GenerateConsensus();
         // add the consenuss to the list of sequences
         sequences.insert(sequences.begin(), consensus);
         // create a enw graph for the second round of alignment
-        graph = spoa::createGraph();
+        graph = spoa::Graph();
         // add the alignments to the graph, including the consensus!
         for (const auto& it: sequences) {
-            auto alignment = alignment_engine->align_sequence_with_graph(it, graph);
-            graph->add_alignment(alignment, it);
+            auto alignment = alignment_engine->Align(it, graph);
+            graph.AddAlignment(alignment, it);
         }
     }
 
     // call the consensus
     if (opt->coverage) {
         std::vector<uint32_t> coverage;
-        std::string consensus = graph->generate_consensus(coverage, true);
+        std::string consensus = graph.GenerateConsensus(&coverage, true);
         // reduce coverage by one if we added the consensus to the graph
         if (opt->pairwise_msa) {
             for (int i = 0; i < consensus.size(); i++) {
-                uint8_t code = graph->coder(consensus[i]);
+                uint8_t code = graph.coder(consensus[i]);
                 coverage[code * consensus.size() + i]--;
             }
         }
         // coverage for each possible base
         fprintf(stdout, "%s\n%s\n", name.c_str(), consensus.c_str());
-        for (uint32_t i = 0; i < graph->num_codes(); ++i) {
-            fputc(graph->decoder(i), stdout);
+        for (uint32_t i = 0; i < graph.num_codes(); ++i) {
+            fputc(graph.decoder(i), stdout);
             for (uint32_t j = 0; j < consensus.size(); ++j) {
                 fprintf(stdout, ",%u", coverage[i * consensus.size() + j]);
             }
@@ -213,19 +215,18 @@ void process(std::unique_ptr<spoa::AlignmentEngine> &alignment_engine, std::stri
         // coverage for deletion
         fputc('-', stdout);
         for (uint32_t j = 0; j < consensus.size(); ++j) {
-            fprintf(stdout, ",%u", coverage[graph->num_codes() * consensus.size() + j]);
+            fprintf(stdout, ",%u", coverage[graph.num_codes() * consensus.size() + j]);
         }
         fputc('\n', stdout);
     }
     else {
-        std::string consensus = graph->generate_consensus();
+        std::string consensus = graph.GenerateConsensus();
         fprintf(stdout, "%s\n%s\n", name.c_str(), consensus.c_str());
     }
 
     // generate the multiple sequence alignemnt if desired
     if (opt->msa) {
-        std::vector<std::string> msa;
-        graph->generate_multiple_sequence_alignment(msa, true);
+        std::vector<std::string> msa = graph.GenerateMultipleSequenceAlignment(true);
         // remove the extra consensus if added
         if (opt->pairwise_msa) msa.erase(msa.begin());
         // left align if necessary
@@ -313,7 +314,7 @@ int main(int argc, char** argv) {
         stream = &in;
     }
 
-    alignment_engine = spoa::createAlignmentEngine(static_cast<spoa::AlignmentType>(opt->algorithm), opt->match, opt->mismatch, opt->gap);
+    alignment_engine = spoa::AlignmentEngine::Create(static_cast<spoa::AlignmentType>(opt->algorithm), opt->match, opt->mismatch, opt->gap);
     std::getline(*stream, name);
     if (name.compare(0, 1, ">") != 0) {
         fprintf(stderr, "Expecting a header line, found: %s\n", name.c_str());
