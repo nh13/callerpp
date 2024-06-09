@@ -39,4 +39,5 @@ jobs:
       - name: Test callerpp
         shell: bash -l {0}
         run: |
+          ./bin/callerpp -v
           printf ">1\nAAAAAGAAAAA\nAAAAACAAAAA\nAAAAAGAAAAA"| ./bin/callerpp -a 2
