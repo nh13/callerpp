@@ -5,7 +5,7 @@ A simple consensus caller based on [spoa](https://github.com/rvaser/spoa).
 
 ## Compilation
 
-Install [spoa](https://github.com/rvaser/spoa).
+Install [spoa](https://github.com/rvaser/spoa) (version >= v4.1.0).
 
 Type `make`.
 
