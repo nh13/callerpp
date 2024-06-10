@@ -31,6 +31,7 @@ static struct option options[] = {
     {"coverage", no_argument, 0, 'c'},
     {"left-align", no_argument, 0, 'l'},
     {"pairwise-msa", no_argument, 0, 'p'},
+    {"version", no_argument, 0, 'v'},
     {"help", no_argument, 0, 'h'},
     {0, 0, 0, 0}
 };
