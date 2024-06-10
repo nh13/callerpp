@@ -301,11 +301,11 @@ int main(int argc, char** argv) {
         else if ('p' == c) opt->pairwise_msa = true;
         else if ('v' == c) {
             version();
-            return -1;
+            return 0;
         }
         else {
             help(opt);
-            return -1;
+            return c == 'h' ? 0 : -1;
         }
     }
     if (optind != argc) {
