@@ -362,10 +362,10 @@ int main(int argc, char** argv) {
         process(alignment_engine, name, sequences, opt);
     }
 
-    free(opt);
     if (!opt->input.empty()) {
         in.close();
     }
+    free(opt);
 
     return 0;
 }
