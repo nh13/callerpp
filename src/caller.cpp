@@ -21,7 +21,7 @@ typedef struct compare_string_size_gt_t {
 } compare_string_size_gt_t;
 
 static struct option options[] = {
-    {"input", optional_argument, 0, 'i'},
+    {"input", required_argument, 0, 'i'},
     {"match", required_argument, 0, 'A'},
     {"mismatch", required_argument, 0, 'B'},
     {"gap", required_argument, 0, 'O'},
