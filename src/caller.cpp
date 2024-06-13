@@ -281,7 +281,7 @@ void help(consensus_opt_t *opt)
 }
 
 int main(int argc, char** argv) {
-    char c;
+    int c;
     consensus_opt_t *opt = consensus_opt_init();
     std::vector<std::string> sequences = {};
     std::string name;
