@@ -15,5 +15,5 @@ Run `./bin/callerpp -h` to see all the options.
 
 ## Demo
 
-![Demo](https://github.com/nh13/callerpp/blob/master/demo.gif)
+![Demo](demo.gif)
 
