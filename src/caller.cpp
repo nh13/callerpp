@@ -248,7 +248,7 @@ void version()
 
 void help(consensus_opt_t *opt)
 {
-    fprintf(stderr, "Usage: consensus [options] <sequences>\n\n");
+    fprintf(stderr, "Usage: callerpp [options] <sequences>\n\n");
     fprintf(stderr, "A tool for consensus calling and multiple sequence alignment.\n\n");
     fprintf(stderr, "Version: %s\n\n", PACKAGE_VERSION);
     fprintf(stderr, "Input:\n");
