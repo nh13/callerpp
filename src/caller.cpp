@@ -6,7 +6,7 @@
 #include "spoa/alignment_engine.hpp"
 using namespace std;
 
-#define PACKAGE_VERSION "0.1.6-dev"
+#define PACKAGE_VERSION "0.1.6"
 
 typedef struct compare_string_size_lt_t {
     const bool operator()(const std::string& first, const std::string& second) {
