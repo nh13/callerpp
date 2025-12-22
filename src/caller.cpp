@@ -7,7 +7,6 @@
 #include <getopt.h>
 #include "spoa/spoa.hpp"
 #include "spoa/alignment_engine.hpp"
-using namespace std;
 
 #define PACKAGE_VERSION "0.1.7-dev"
 
