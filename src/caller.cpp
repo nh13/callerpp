@@ -201,9 +201,14 @@ void process(std::unique_ptr<spoa::AlignmentEngine> &alignment_engine, std::stri
         std::string consensus = graph.GenerateConsensus(&coverage, true);
         // reduce coverage by one if we added the consensus to the graph
         if (opt->pairwise_msa) {
-            for (int i = 0; i < consensus.size(); i++) {
+            for (size_t i = 0; i < consensus.size(); i++) {
                 uint8_t code = graph.coder(consensus[i]);
-                coverage[code * consensus.size() + i]--;
+                size_t idx = code * consensus.size() + i;
+                if (idx < coverage.size()) {
+                    coverage[idx]--;
+                } else {
+                    fprintf(stderr, "Warning: invalid coverage index at position %zu\n", i);
+                }
             }
         }
         // coverage for each possible base
