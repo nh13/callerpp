@@ -76,7 +76,7 @@ void left_align(std::string &consensus, std::string &sequence) {
 
     int left = 0;
     while(left < msa_size) {
-        // find the left-moset '-' in a run of '-'
+        // find the left-most '-' in a run of '-'
         if (sequence[left] != '-') {
             left++;
             continue;
@@ -183,11 +183,11 @@ void process(std::unique_ptr<spoa::AlignmentEngine> &alignment_engine, std::stri
 
     std::string consensus;
     if (opt->pairwise_msa) {
-        // generate the consenuss
+        // generate the consensus
         consensus = graph.GenerateConsensus();
-        // add the consenuss to the list of sequences
+        // add the consensus to the list of sequences
         sequences.insert(sequences.begin(), consensus);
-        // create a enw graph for the second round of alignment
+        // create a new graph for the second round of alignment
         graph = spoa::Graph();
         // add the alignments to the graph, including the consensus!
         for (const auto& it: sequences) {
