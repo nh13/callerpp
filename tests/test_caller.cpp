@@ -48,3 +48,30 @@ TEST(FileHandlingTest, ValidFileWorks) {
     ASSERT_TRUE(WIFEXITED(result)) << "Process did not exit normally";
     EXPECT_EQ(WEXITSTATUS(result), 0);
 }
+
+// Test input validation for numeric arguments
+TEST(InputValidationTest, InvalidAlgorithmReturnsError) {
+    // Algorithm must be 0, 1, or 2
+    int result = std::system("echo '>test\nACGT' | ./bin/callerpp -a 5 2>/dev/null");
+    EXPECT_NE(result, 0);
+}
+
+TEST(InputValidationTest, NonNumericAlgorithmReturnsError) {
+    int result = std::system("echo '>test\nACGT' | ./bin/callerpp -a abc 2>/dev/null");
+    EXPECT_NE(result, 0);
+}
+
+TEST(InputValidationTest, InvalidResortReturnsError) {
+    // Resort must be 0, 1, or 2
+    int result = std::system("echo '>test\nACGT' | ./bin/callerpp -r 10 2>/dev/null");
+    EXPECT_NE(result, 0);
+}
+
+TEST(InputValidationTest, ValidAlgorithmWorks) {
+    int result = std::system("echo '>test\nACGT\nACGT' | ./bin/callerpp -a 0 >/dev/null 2>&1");
+    EXPECT_EQ(result, 0);
+    result = std::system("echo '>test\nACGT\nACGT' | ./bin/callerpp -a 1 >/dev/null 2>&1");
+    EXPECT_EQ(result, 0);
+    result = std::system("echo '>test\nACGT\nACGT' | ./bin/callerpp -a 2 >/dev/null 2>&1");
+    EXPECT_EQ(result, 0);
+}
