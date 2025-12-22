@@ -162,9 +162,8 @@ void process(std::unique_ptr<spoa::AlignmentEngine> &alignment_engine, std::stri
         case 1: 
                 std::sort(sequences.begin(), sequences.end(), opt->_compare_lt); 
                 break;
-        case 2: 
-                compare_string_size_gt_t compare_gt;
-                std::sort(sequences.begin(), sequences.end(), opt->_compare_gt); 
+        case 2:
+                std::sort(sequences.begin(), sequences.end(), opt->_compare_gt);
                 break;
         default: 
                 fprintf(stderr, "Bug: resort value '%d' not valid!\n", opt->resort);
