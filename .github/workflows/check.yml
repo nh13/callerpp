@@ -11,12 +11,18 @@ jobs:
     steps:
       - name: Checkout callerpp
         uses: actions/checkout@v4
-      
+
       - name: Checkout spoa
         uses: actions/checkout@v4
-        with: 
+        with:
           repository: rvaser/spoa
           path: spoa
+
+      - name: Install dependencies
+        shell: bash -l {0}
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libgtest-dev
 
       - name: Install the spoa library
         shell: bash -l {0}
@@ -36,7 +42,12 @@ jobs:
         run: |
           make
 
-      - name: Test callerpp
+      - name: Run unit tests
+        shell: bash -l {0}
+        run: |
+          make test
+
+      - name: Test callerpp CLI
         shell: bash -l {0}
         run: |
           ./bin/callerpp -v
