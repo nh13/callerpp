@@ -207,7 +207,8 @@ void process(std::unique_ptr<spoa::AlignmentEngine> &alignment_engine, std::stri
                 if (idx < coverage.size()) {
                     coverage[idx]--;
                 } else {
-                    fprintf(stderr, "Warning: invalid coverage index at position %zu\n", i);
+                    fprintf(stderr, "Warning: invalid coverage index at position %zu (code=%u, idx=%zu, size=%zu)\n",
+                            i, code, idx, coverage.size());
                 }
             }
         }
