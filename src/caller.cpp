@@ -325,6 +325,11 @@ int main(int argc, char** argv) {
     }
     else {
         in.open(opt->input.c_str(), std::ifstream::in);
+        if (!in.is_open()) {
+            fprintf(stderr, "Error: cannot open file '%s'\n", opt->input.c_str());
+            free(opt);
+            return 1;
+        }
         stream = &in;
     }
 
