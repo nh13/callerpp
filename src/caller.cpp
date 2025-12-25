@@ -3,6 +3,7 @@
 #include <climits>
 #include <iostream>
 #include <fstream>
+#include <memory>
 #include <getopt.h>
 #include "spoa/spoa.hpp"
 #include "spoa/alignment_engine.hpp"
@@ -55,9 +56,9 @@ typedef struct consensus_opt_t {
     compare_string_size_gt_t _compare_gt;
 } consensus_opt_t;
 
-consensus_opt_t *consensus_opt_init()
+std::unique_ptr<consensus_opt_t> consensus_opt_init()
 {
-    consensus_opt_t *opt = (consensus_opt_t*)calloc(1, sizeof(consensus_opt_t));
+    auto opt = std::make_unique<consensus_opt_t>();
     opt->match           = 5;
     opt->mismatch        = -4;
     opt->gap             = -8;
@@ -304,7 +305,7 @@ void help(consensus_opt_t *opt)
 int main(int argc, char** argv) {
     int c;
     long parsed_val;
-    consensus_opt_t *opt = consensus_opt_init();
+    auto opt = consensus_opt_init();
     std::vector<std::string> sequences = {};
     std::string name;
     std::unique_ptr<spoa::AlignmentEngine> alignment_engine;
@@ -318,7 +319,6 @@ int main(int argc, char** argv) {
         else if ('A' == c) {
             if (!parse_int(optarg, &parsed_val, SCHAR_MIN, SCHAR_MAX)) {
                 fprintf(stderr, "Error: invalid match score '%s'\n", optarg);
-                free(opt);
                 return 1;
             }
             opt->match = static_cast<int8_t>(parsed_val);
@@ -326,7 +326,6 @@ int main(int argc, char** argv) {
         else if ('B' == c) {
             if (!parse_int(optarg, &parsed_val, SCHAR_MIN, SCHAR_MAX)) {
                 fprintf(stderr, "Error: invalid mismatch penalty '%s'\n", optarg);
-                free(opt);
                 return 1;
             }
             opt->mismatch = static_cast<int8_t>(parsed_val);
@@ -334,7 +333,6 @@ int main(int argc, char** argv) {
         else if ('O' == c) {
             if (!parse_int(optarg, &parsed_val, SCHAR_MIN, SCHAR_MAX)) {
                 fprintf(stderr, "Error: invalid gap penalty '%s'\n", optarg);
-                free(opt);
                 return 1;
             }
             opt->gap = static_cast<int8_t>(parsed_val);
@@ -342,7 +340,6 @@ int main(int argc, char** argv) {
         else if ('a' == c) {
             if (!parse_int(optarg, &parsed_val, 0, 2)) {
                 fprintf(stderr, "Error: invalid algorithm '%s' (must be 0, 1, or 2)\n", optarg);
-                free(opt);
                 return 1;
             }
             opt->algorithm = static_cast<int8_t>(parsed_val);
@@ -350,7 +347,6 @@ int main(int argc, char** argv) {
         else if ('r' == c) {
             if (!parse_int(optarg, &parsed_val, 0, 2)) {
                 fprintf(stderr, "Error: invalid resort value '%s' (must be 0, 1, or 2)\n", optarg);
-                free(opt);
                 return 1;
             }
             opt->resort = static_cast<int8_t>(parsed_val);
@@ -361,16 +357,15 @@ int main(int argc, char** argv) {
         else if ('p' == c) opt->pairwise_msa = true;
         else if ('v' == c) {
             version();
-            free(opt);
             return 0;
         }
         else {
-            help(opt);
+            help(opt.get());
             return c == 'h' ? 0 : -1;
         }
     }
     if (optind != argc) {
-        help(opt);
+        help(opt.get());
         fprintf(stderr, "Error: extra arguments found:");
         while (optind < argc) {
             fprintf(stderr, " %s", argv[optind]);
@@ -387,7 +382,6 @@ int main(int argc, char** argv) {
         in.open(opt->input.c_str(), std::ifstream::in);
         if (!in.is_open()) {
             fprintf(stderr, "Error: cannot open file '%s'\n", opt->input.c_str());
-            free(opt);
             return 1;
         }
         stream = &in;
@@ -409,7 +403,7 @@ int main(int argc, char** argv) {
                 }
             }
             else {
-                process(alignment_engine, name, sequences, opt);
+                process(alignment_engine, name, sequences, opt.get());
                 if (line.empty()) fflush(stdout);
 
             }
@@ -424,13 +418,12 @@ int main(int argc, char** argv) {
         }
     }
     if (!sequences.empty()) {
-        process(alignment_engine, name, sequences, opt);
+        process(alignment_engine, name, sequences, opt.get());
     }
 
     if (!opt->input.empty()) {
         in.close();
     }
-    free(opt);
 
     return 0;
 }
