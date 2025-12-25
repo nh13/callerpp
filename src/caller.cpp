@@ -1,4 +1,6 @@
 #include <algorithm>
+#include <cerrno>
+#include <climits>
 #include <iostream>
 #include <fstream>
 #include <getopt.h>
@@ -247,6 +249,20 @@ void process(std::unique_ptr<spoa::AlignmentEngine> &alignment_engine, std::stri
     }
 }
 
+bool parse_int(const char *str, long *result, long min_val, long max_val) {
+    char *endptr;
+    errno = 0;
+    long val = strtol(str, &endptr, 10);
+    if (errno != 0 || *endptr != '\0' || endptr == str) {
+        return false;
+    }
+    if (val < min_val || val > max_val) {
+        return false;
+    }
+    *result = val;
+    return true;
+}
+
 void version()
 {
     fprintf(stderr, "Version: %s\n", PACKAGE_VERSION);
@@ -288,6 +304,7 @@ void help(consensus_opt_t *opt)
 
 int main(int argc, char** argv) {
     int c;
+    long parsed_val;
     consensus_opt_t *opt = consensus_opt_init();
     std::vector<std::string> sequences = {};
     std::string name;
@@ -296,18 +313,56 @@ int main(int argc, char** argv) {
     std::istream *stream = &std::cin;
 
     while ((c = getopt_long(argc, argv, "i:A:B:O:a:r:cmlphv", options, nullptr)) != -1) {
-        if ('i' == c)      opt->input        = optarg;
-        else if ('A' == c) opt->match        = atoi(optarg);
-        else if ('B' == c) opt->mismatch     = atoi(optarg);
-        else if ('O' == c) opt->gap          = atoi(optarg);
-        else if ('a' == c) opt->algorithm    = atoi(optarg);
-        else if ('r' == c) opt->resort       = atoi(optarg);
+        if ('i' == c) {
+            opt->input = optarg;
+        }
+        else if ('A' == c) {
+            if (!parse_int(optarg, &parsed_val, SCHAR_MIN, SCHAR_MAX)) {
+                fprintf(stderr, "Error: invalid match score '%s'\n", optarg);
+                free(opt);
+                return 1;
+            }
+            opt->match = static_cast<int8_t>(parsed_val);
+        }
+        else if ('B' == c) {
+            if (!parse_int(optarg, &parsed_val, SCHAR_MIN, SCHAR_MAX)) {
+                fprintf(stderr, "Error: invalid mismatch penalty '%s'\n", optarg);
+                free(opt);
+                return 1;
+            }
+            opt->mismatch = static_cast<int8_t>(parsed_val);
+        }
+        else if ('O' == c) {
+            if (!parse_int(optarg, &parsed_val, SCHAR_MIN, SCHAR_MAX)) {
+                fprintf(stderr, "Error: invalid gap penalty '%s'\n", optarg);
+                free(opt);
+                return 1;
+            }
+            opt->gap = static_cast<int8_t>(parsed_val);
+        }
+        else if ('a' == c) {
+            if (!parse_int(optarg, &parsed_val, 0, 2)) {
+                fprintf(stderr, "Error: invalid algorithm '%s' (must be 0, 1, or 2)\n", optarg);
+                free(opt);
+                return 1;
+            }
+            opt->algorithm = static_cast<int8_t>(parsed_val);
+        }
+        else if ('r' == c) {
+            if (!parse_int(optarg, &parsed_val, 0, 2)) {
+                fprintf(stderr, "Error: invalid resort value '%s' (must be 0, 1, or 2)\n", optarg);
+                free(opt);
+                return 1;
+            }
+            opt->resort = static_cast<int8_t>(parsed_val);
+        }
         else if ('c' == c) opt->coverage     = true;
         else if ('m' == c) opt->msa          = true;
         else if ('l' == c) opt->left_align   = true;
         else if ('p' == c) opt->pairwise_msa = true;
         else if ('v' == c) {
             version();
+            free(opt);
             return 0;
         }
         else {
