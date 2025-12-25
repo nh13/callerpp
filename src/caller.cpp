@@ -242,8 +242,7 @@ void process(std::unique_ptr<spoa::AlignmentEngine> &alignment_engine, std::stri
         // left align if necessary
         if (opt->left_align) left_align_msa(msa);
         for (const auto& it: msa) {
-            std::string sequence = it;
-            fprintf(stdout, "%s\n", sequence.c_str());
+            fprintf(stdout, "%s\n", it.c_str());
         }
     }
 }
