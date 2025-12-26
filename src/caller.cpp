@@ -8,7 +8,7 @@
 #include "spoa/spoa.hpp"
 #include "spoa/alignment_engine.hpp"
 
-#define PACKAGE_VERSION "0.1.7-dev"
+#define PACKAGE_VERSION "0.1.7"
 
 typedef struct compare_string_size_lt_t {
     const bool operator()(const std::string& first, const std::string& second) {
