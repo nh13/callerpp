@@ -200,11 +200,12 @@ void process(std::unique_ptr<spoa::AlignmentEngine> &alignment_engine, std::stri
     if (opt->coverage) {
         std::vector<uint32_t> coverage;
         std::string consensus = graph.GenerateConsensus(&coverage, true);
+        const size_t consensus_len = consensus.size();
         // reduce coverage by one if we added the consensus to the graph
         if (opt->pairwise_msa) {
-            for (size_t i = 0; i < consensus.size(); i++) {
+            for (size_t i = 0; i < consensus_len; i++) {
                 uint8_t code = graph.coder(consensus[i]);
-                size_t idx = code * consensus.size() + i;
+                size_t idx = code * consensus_len + i;
                 if (idx < coverage.size()) {
                     coverage[idx]--;
                 } else {
@@ -217,15 +218,15 @@ void process(std::unique_ptr<spoa::AlignmentEngine> &alignment_engine, std::stri
         fprintf(stdout, "%s\n%s\n", name.c_str(), consensus.c_str());
         for (uint32_t i = 0; i < graph.num_codes(); ++i) {
             fputc(graph.decoder(i), stdout);
-            for (uint32_t j = 0; j < consensus.size(); ++j) {
-                fprintf(stdout, ",%u", coverage[i * consensus.size() + j]);
+            for (uint32_t j = 0; j < consensus_len; ++j) {
+                fprintf(stdout, ",%u", coverage[i * consensus_len + j]);
             }
             fputc('\n', stdout);
         }
         // coverage for deletion
         fputc('-', stdout);
-        for (uint32_t j = 0; j < consensus.size(); ++j) {
-            fprintf(stdout, ",%u", coverage[graph.num_codes() * consensus.size() + j]);
+        for (uint32_t j = 0; j < consensus_len; ++j) {
+            fprintf(stdout, ",%u", coverage[graph.num_codes() * consensus_len + j]);
         }
         fputc('\n', stdout);
     }
